@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSINT Tool — Entity Intelligence Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+<style>
+  :root {
+    --bg:       #060a0f;
+    --panel:    #0d1117;
+    --border:   #1e2d3d;
+    --accent:   #00ff88;
+    --accent2:  #00aaff;
+    --red:      #ff3355;
+    --orange:   #ff8800;
+    --yellow:   #ffcc00;
+    --white:    #e6edf3;
+    --muted:    #5c7080;
+    --scan:     rgba(0,255,136,0.03);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Scanline overlay ─────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      var(--scan) 2px,
+      var(--scan) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Grid background ──────────────────────────────── */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ───────────────────────────────────────── */
+  header {
+    position: relative; z-index: 10;
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    background: rgba(6,10,15,0.95);
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    border: 1px solid var(--accent);
+    display: grid; place-items: center;
+    position: relative;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+
+  .logo-icon::before {
+    content: '';
+    position: absolute; inset: 3px;
+    border: 1px solid rgba(0,255,136,0.3);
+  }
+
+  .logo-icon svg { width: 18px; height: 18px; fill: var(--accent); }
+
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
+    50%       { box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+  }
+
+  .logo-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 3px;
+  }
+
+  .logo-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  .header-right {
+    display: flex; align-items: center; gap: 20px;
+  }
+
+  .status-dot {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .status-dot::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.2; }
+  }
+
+  /* ── Main layout ──────────────────────────────────── */
+  main {
+    position: relative; z-index: 10;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ── Hero ─────────────────────────────────────────── */
+  .hero {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+
+  .hero-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.1s forwards;
+  }
+
+  .hero h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(36px, 6vw, 72px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.2s forwards;
+  }
+
+  .hero h1 span { color: var(--accent); }
+
+  .hero p {
+    font-size: 16px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.3s forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Input card ───────────────────────────────────── */
+  .input-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 32px;
+    margin-bottom: 40px;
+    position: relative;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.4s forwards;
+  }
+
+  .input-card::before {
+    content: 'TARGET SPECIFICATION';
+    position: absolute;
+    top: -1px; left: 24px;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 2px 10px;
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 200px 160px 140px;
+    gap: 12px;
+    align-items: end;
+  }
+
+  @media (max-width: 760px) {
+    .input-row { grid-template-columns: 1fr; }
+  }
+
+  .field label {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--white);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .field input::placeholder { color: var(--muted); }
+
+  .field select option {
+    background: var(--panel);
+    color: var(--white);
+  }
+
+  .run-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    padding: 13px 24px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .run-btn:hover:not(:disabled) {
+    background: #00ffaa;
+    box-shadow: 0 0 20px rgba(0,255,136,0.4);
+  }
+
+  .run-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .run-btn .btn-text { position: relative; z-index: 1; }
+
+  /* ── Progress terminal ────────────────────────────── */
+  .terminal {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 20px;
+    margin-bottom: 32px;
+    max-height: 220px;
+    overflow-y: auto;
+    display: none;
+  }
+
+  .terminal.active { display: block; }
+
+  .terminal-line { color: var(--muted); line-height: 1.8; }
+  .terminal-line.ok    { color: var(--accent); }
+  .terminal-line.warn  { color: var(--orange); }
+  .terminal-line.error { color: var(--red); }
+  .terminal-line.info  { color: var(--accent2); }
+
+  .terminal-line::before { content: '> '; color: var(--border); }
+
+  /* ── Results ──────────────────────────────────────── */
+  #results { display: none; }
+  #results.active { display: block; }
+
+  /* ── Risk banner ──────────────────────────────────── */
+  .risk-banner {
+    border: 1px solid;
+    padding: 24px 32px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .risk-banner.LOW      { border-color: #00ff88; background: rgba(0,255,136,0.04); }
+  .risk-banner.MEDIUM   { border-color: #ffcc00; background: rgba(255,204,0,0.04); }
+  .risk-banner.HIGH     { border-color: #ff8800; background: rgba(255,136,0,0.04); }
+  .risk-banner.CRITICAL { border-color: #ff3355; background: rgba(255,51,85,0.04); }
+
+  .risk-level {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 4px;
+  }
+
+  .risk-banner.LOW      .risk-level { color: #00ff88; }
+  .risk-banner.MEDIUM   .risk-level { color: #ffcc00; }
+  .risk-banner.HIGH     .risk-level { color: #ff8800; }
+  .risk-banner.CRITICAL .risk-level { color: #ff3355; }
+
+  .risk-meta { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); line-height: 1.9; }
+  .risk-score-bar { flex: 1; max-width: 200px; }
+  .risk-score-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+  .risk-bar-track { height: 4px; background: var(--border); }
+  .risk-bar-fill  { height: 4px; transition: width 0.8s ease; }
+  .risk-banner.LOW      .risk-bar-fill { background: #00ff88; }
+  .risk-banner.MEDIUM   .risk-bar-fill { background: #ffcc00; }
+  .risk-banner.HIGH     .risk-bar-fill { background: #ff8800; }
+  .risk-banner.CRITICAL .risk-bar-fill { background: #ff3355; }
+
+  /* ── Section ──────────────────────────────────────── */
+  .section {
+    margin-bottom: 32px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .section-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--bg);
+    background: var(--accent);
+    padding: 1px 7px;
+  }
+
+  /* ── Finding card ─────────────────────────────────── */
+  .finding {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent2);
+    padding: 16px 20px;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+
+  .finding:hover { border-color: var(--accent2); border-left-color: var(--accent); }
+  .finding.risk  { border-left-color: var(--red); }
+  .finding.warn  { border-left-color: var(--orange); }
+
+  .finding-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  .finding-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--white);
+    margin-bottom: 6px;
+    word-break: break-all;
+  }
+
+  .finding-summary {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .finding-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .meta-pill {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .meta-pill.risk    { border-color: var(--red);    color: var(--red);    }
+  .meta-pill.confirm { border-color: var(--accent);  color: var(--accent); }
+  .meta-pill.source-url a { color: var(--accent2); text-decoration: none; font-size: 9px; }
+  .meta-pill.source-url a:hover { text-decoration: underline; }
+
+  /* ── Actions bar ──────────────────────────────────── */
+  .actions-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--white);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .action-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .action-btn.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  .action-btn.primary:hover {
+    background: #00ffaa;
+    box-shadow: 0 0 20px rgba(0,255,136,0.3);
+    color: var(--bg);
+  }
+
+  /* ── Summary stats ────────────────────────────────── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 32px;
+  }
+
+  .stat-cell {
+    background: var(--panel);
+    padding: 20px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 28px;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* ── Scrollbar ─────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  footer {
+    position: relative; z-index: 10;
+    border-top: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">OSINT//TOOL</div>
+      <div class="logo-sub">ENTITY INTELLIGENCE PLATFORM</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-dot">SYSTEM ONLINE</div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="hero-tag">// Open Source Intelligence</div>
+    <h1>ENTITY <span>DISCOVERY</span><br>& REPORTING</h1>
+    <p>Multi-vector OSINT collection · Entity resolution · Risk scoring · PDF export</p>
+  </div>
+
+  <div class="input-card">
+    <div class="input-row">
+      <div class="field">
+        <label>Target Entity</label>
+        <input type="text" id="target" placeholder="Travis Haasch  or  AiGeeks" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Entity Type</label>
+        <select id="type">
+          <option value="company">Company</option>
+          <option value="individual">Individual</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Report Format</label>
+        <select id="format">
+          <option value="both">PDF + Markdown</option>
+          <option value="pdf">PDF Only</option>
+          <option value="md">Markdown Only</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="run-btn" id="runBtn" onclick="runInvestigation()">
+          <span class="btn-text">▶ INVESTIGATE</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="terminal" id="terminal"></div>
+
+  <div id="results">
+    <div class="stats-row" id="statsRow"></div>
+    <div class="risk-banner" id="riskBanner">
+      <div>
+        <div class="risk-level" id="riskLevel">—</div>
+        <div class="risk-meta" id="riskMeta"></div>
+      </div>
+      <div class="risk-score-bar">
+        <div class="risk-score-label">RISK SCORE</div>
+        <div class="risk-bar-track"><div class="risk-bar-fill" id="riskBarFill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="actions-bar" id="actionsBar"></div>
+    <div id="findingsSections"></div>
+  </div>
+</main>
+
+<footer>
+  <span>OSINT TOOL v1.0 — DHARAM KATHIRIYA (DARK)</span>
+  <span>PASSIVE COLLECTION · OPSEC COMPLIANT · TLP:WHITE</span>
+</footer>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentInvestigation = null;
+
+// ── Risk scorer (mirrors server logic) ────────────────────────────────────
+const WEIGHTS = {
+  breach_exposure:  { weight: 90, severity: 'CRITICAL', label: 'Data Breach Exposure' },
+  dark_web:         { weight: 85, severity: 'CRITICAL', label: 'Dark Web Mention' },
+  sanctions:        { weight: 80, severity: 'HIGH',     label: 'Sanctions Hit' },
+  derogatory_press: { weight: 70, severity: 'HIGH',     label: 'Adverse Press' },
+  open_port:        { weight: 45, severity: 'MEDIUM',   label: 'Exposed Service' },
+  expired_cert:     { weight: 35, severity: 'MEDIUM',   label: 'Expired Certificate' },
+  infra_opacity:    { weight: 25, severity: 'MEDIUM',   label: 'Infrastructure Opacity' },
+  no_code_repo:     { weight: 10, severity: 'LOW',       label: 'No Code Repo' },
+};
+
+function scoreRisk(findings) {
+  const signals = [];
+  let total = 0;
+  const maxPossible = Object.values(WEIGHTS).reduce((s,v) => s + v.weight, 0);
+
+  for (const f of findings) {
+    if (!f.riskSignal) continue;
+    const def = WEIGHTS[f.riskSignal];
+    if (!def) continue;
+    const conf = f.confidence != null ? f.confidence : 0.5;
+    const contrib = def.weight * conf;
+    total += contrib;
+    signals.push({ ...def, signal: f.riskSignal, contribution: Math.round(contrib), source: f.source, detail: f.value || f.summary });
+  }
+
+  const score    = Math.min(100, Math.round((total / maxPossible) * 100));
+  const level    = score >= 70 ? 'CRITICAL' : score >= 45 ? 'HIGH' : score >= 20 ? 'MEDIUM' : 'LOW';
+  return { score, level, signals };
+}
+
+// ── Entity resolver ────────────────────────────────────────────────────────
+function resolveEntities(findings, target) {
+  const tokens = target.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+  const confirmed = [], fps = [];
+
+  for (const f of findings) {
+    const text = [f.title, f.summary, f.value, f.sourceUrl].join(' ').toLowerCase();
+    let score = 0;
+    const hits = tokens.filter(t => text.includes(t));
+    score += (hits.length / Math.max(tokens.length, 1)) * 0.5;
+    if (text.includes(target.toLowerCase())) score += 0.3;
+    if (f.mismatch) score -= 0.4;
+    if (!f.value && !f.summary) score -= 0.2;
+    f.confidence = Math.max(0, Math.min(1, score));
+
+    if (f.confidence >= 0.4) confirmed.push(f);
+    else fps.push({ ...f, falsePositiveReason: 'Confidence below threshold' });
+  }
+
+  return { confirmed, falsePositives: fps };
+}
+
+// ── Log helper ─────────────────────────────────────────────────────────────
+function log(msg, type = '') {
+  const t = document.getElementById('terminal');
+  t.classList.add('active');
+  const line = document.createElement('div');
+  line.className = `terminal-line ${type}`;
+  line.textContent = `[${new Date().toISOString().slice(11,19)}] ${msg}`;
+  t.appendChild(line);
+  t.scrollTop = t.scrollHeight;
+}
+
+// ── Main investigation ─────────────────────────────────────────────────────
+async function runInvestigation() {
+  const target = document.getElementById('target').value.trim();
+  const type   = document.getElementById('type').value;
+
+  if (!target) { alert('Please enter a target name.'); return; }
+
+  // Reset UI
+  document.getElementById('terminal').innerHTML = '';
+  document.getElementById('terminal').classList.add('active');
+  document.getElementById('results').classList.remove('active');
+  document.getElementById('runBtn').disabled = true;
+
+  log(`Initialising investigation: "${target}" (${type})`, 'info');
+  log('Checking robots.txt compliance…', '');
+  log('Spawning 3 parallel adapters…', 'info');
+
+  const base = window.location.origin;
+  const body = JSON.stringify({ target, type });
+  const headers = { 'Content-Type': 'application/json' };
+
+  // Run all 3 adapters in parallel
+  const [socialRes, infraRes, regRes] = await Promise.allSettled([
+    fetch(`${base}/api/social`, { method: 'POST', headers, body }).then(r => r.json()),
+    fetch(`${base}/api/infrastructure`, { method: 'POST', headers, body }).then(r => r.json()),
+    fetch(`${base}/api/regulatory`, { method: 'POST', headers, body }).then(r => r.json()),
+  ]);
+
+  const allRaw = [];
+
+  if (socialRes.status === 'fulfilled') {
+    const f = socialRes.value.findings || [];
+    log(`SocialAdapter: ${f.length} findings collected`, 'ok');
+    allRaw.push(...f);
+  } else {
+    log(`SocialAdapter failed: ${socialRes.reason}`, 'error');
+  }
+
+  if (infraRes.status === 'fulfilled') {
+    const f = infraRes.value.findings || [];
+    log(`InfrastructureAdapter: ${f.length} findings collected`, 'ok');
+    allRaw.push(...f);
+  } else {
+    log(`InfrastructureAdapter failed: ${infraRes.reason}`, 'error');
+  }
+
+  if (regRes.status === 'fulfilled') {
+    const f = regRes.value.findings || [];
+    log(`RegulatoryAdapter: ${f.length} findings collected`, 'ok');
+    allRaw.push(...f);
+  } else {
+    log(`RegulatoryAdapter failed: ${regRes.reason}`, 'error');
+  }
+
+  log(`Total raw findings: ${allRaw.length}`, 'info');
+  log('Running entity resolution…', '');
+
+  const { confirmed, falsePositives } = resolveEntities(allRaw, target);
+  log(`Confirmed: ${confirmed.length} | False positives filtered: ${falsePositives.length}`, 'ok');
+
+  const risk = scoreRisk(confirmed);
+  log(`Risk assessment: ${risk.level} (${risk.score}/100)`, risk.level === 'LOW' ? 'ok' : 'warn');
+  log('Investigation complete. Rendering results…', 'ok');
+
+  currentInvestigation = {
+    meta: {
+      target, type,
+      timestamp: new Date().toISOString(),
+      totalRaw: allRaw.length,
+      confirmedFindings: confirmed.length,
+      falsePositivesFiltered: falsePositives.length,
+    },
+    findings: confirmed,
+    falsePositives,
+    riskProfile: risk,
+  };
+
+  renderResults(currentInvestigation);
+  document.getElementById('runBtn').disabled = false;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderResults(inv) {
+  const risk = inv.riskProfile;
+
+  // Stats
+  document.getElementById('statsRow').innerHTML = [
+    { v: inv.meta.totalRaw,              l: 'Raw Findings'   },
+    { v: inv.meta.confirmedFindings,     l: 'Confirmed'       },
+    { v: inv.meta.falsePositivesFiltered,l: 'Filtered (FP)'  },
+    { v: risk.signals.length,            l: 'Risk Signals'   },
+    { v: risk.score + '/100',            l: 'Risk Score'      },
+  ].map(s => `<div class="stat-cell"><span class="stat-value">${s.v}</span><span class="stat-label">${s.l}</span></div>`).join('');
+
+  // Risk banner
+  const banner = document.getElementById('riskBanner');
+  banner.className = `risk-banner ${risk.level}`;
+  document.getElementById('riskLevel').textContent = risk.level;
+  document.getElementById('riskMeta').innerHTML =
+    `Score: ${risk.score}/100<br>` +
+    `Signals: ${risk.signals.length}<br>` +
+    (risk.signals.length ? risk.signals.map(s => `${s.label}`).join(' · ') : 'No adverse signals');
+  setTimeout(() => {
+    document.getElementById('riskBarFill').style.width = risk.score + '%';
+  }, 100);
+
+  // Actions
+  document.getElementById('actionsBar').innerHTML = `
+    <button class="action-btn primary" onclick="downloadPDF()">⬇ DOWNLOAD PDF REPORT</button>
+    <button class="action-btn" onclick="downloadMarkdown()">⬇ DOWNLOAD MARKDOWN</button>
+    <button class="action-btn" onclick="downloadJSON()">⬇ DOWNLOAD JSON</button>
+  `;
+
+  // Findings by category
+  const grouped = {};
+  for (const f of inv.findings) {
+    const cat = f.category || 'uncategorised';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(f);
+  }
+
+  const catLabels = {
+    social:         'SOCIAL & PUBLIC FOOTPRINT',
+    infrastructure: 'TECHNICAL INFRASTRUCTURE',
+    regulatory:     'CONTEXTUAL & REGULATORY',
+    uncategorised:  'UNCATEGORISED',
+  };
+
+  const container = document.getElementById('findingsSections');
+  container.innerHTML = '';
+
+  for (const [cat, findings] of Object.entries(grouped)) {
+    if (!findings.length) continue;
+    const sec = document.createElement('div');
+    sec.className = 'section';
+    sec.innerHTML = `
+      <div class="section-header">
+        <span class="section-title">${catLabels[cat] || cat}</span>
+        <span class="section-count">${findings.length}</span>
+      </div>
+      ${findings.map(f => {
+        const riskClass = f.riskSignal && WEIGHTS[f.riskSignal]?.severity === 'CRITICAL' ? 'risk'
+                        : f.riskSignal ? 'warn' : '';
+        const conf = f.confidence != null ? Math.round(f.confidence * 100) + '%' : '—';
+        return `
+          <div class="finding ${riskClass}">
+            <div class="finding-title">${escHtml(f.title || '')}</div>
+            <div class="finding-value">${escHtml((f.value || '').slice(0, 120))}</div>
+            ${f.summary ? `<div class="finding-summary">${escHtml(f.summary)}</div>` : ''}
+            <div class="finding-meta">
+              <span class="meta-pill confirm">Confidence: ${conf}</span>
+              <span class="meta-pill">${escHtml(f.source || '')}</span>
+              <span class="meta-pill">${f.timestamp.slice(0,19).replace('T',' ')} UTC</span>
+              ${f.riskSignal ? `<span class="meta-pill risk">${f.riskSignal}</span>` : ''}
+              ${f.sourceUrl ? `<span class="meta-pill source-url"><a href="${escAttr(f.sourceUrl)}" target="_blank" rel="noopener">SOURCE ↗</a></span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    `;
+    container.appendChild(sec);
+  }
+
+  document.getElementById('results').classList.add('active');
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return s.replace(/"/g,'&quot;'); }
+
+// ── PDF Export (client-side via jsPDF) ────────────────────────────────────
+function downloadPDF() {
+  if (!currentInvestigation) return;
+  const inv  = currentInvestigation;
+  const risk = inv.riskProfile;
+  const { jsPDF } = window.jspdf;
+  const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W    = 210, M = 14;
+  let y      = 20;
+
+  const riskColors = {
+    LOW:      [0, 200, 100],
+    MEDIUM:   [255, 200, 0],
+    HIGH:     [255, 140, 0],
+    CRITICAL: [255, 50, 80],
+  };
+  const rc = riskColors[risk.level] || [150,150,150];
+
+  // Cover
+  doc.setFillColor(6, 10, 15);
+  doc.rect(0, 0, W, 297, 'F');
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(8); doc.setTextColor(0, 255, 136);
+  doc.text('OPEN-SOURCE INTELLIGENCE INVESTIGATION REPORT', W/2, y, { align: 'center' });
+  y += 10;
+  doc.setFontSize(20); doc.setTextColor(230, 237, 243);
+  doc.text('DIGITAL FOOTPRINT ANALYSIS', W/2, y, { align: 'center' });
+  y += 8;
+  doc.setFontSize(11); doc.setTextColor(...rc);
+  doc.text(`TARGET: ${inv.meta.target.toUpperCase()}`, W/2, y, { align: 'center' });
+  y += 14;
+
+  // Meta table
+  doc.autoTable({
+    startY: y,
+    margin: { left: M, right: M },
+    head: [['FIELD', 'VALUE']],
+    body: [
+      ['Report Date',       inv.meta.timestamp.slice(0,10)],
+      ['Target',            inv.meta.target],
+      ['Type',              inv.meta.type],
+      ['Total Findings',    String(inv.meta.totalRaw)],
+      ['Confirmed',         String(inv.meta.confirmedFindings)],
+      ['False Positives',   String(inv.meta.falsePositivesFiltered)],
+      ['Risk Level',        `${risk.level} (${risk.score}/100)`],
+      ['Classification',    'TLP:WHITE — Unrestricted'],
+      ['Analyst',           'Dharam Kathiriya (Dark)'],
+    ],
+    styles:     { font: 'courier', fontSize: 8, textColor: [230,237,243], fillColor: [13,17,23] },
+    headStyles: { fillColor: [22,27,34], textColor: [0,255,136], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [6,10,15] },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Risk
+  doc.setFontSize(9); doc.setTextColor(0,255,136);
+  doc.text('// RISK ASSESSMENT', M, y);
+  y += 6;
+  doc.setFontSize(18); doc.setTextColor(...rc);
+  doc.text(`${risk.level} — ${risk.score}/100`, M, y);
+  y += 10;
+
+  if (risk.signals.length > 0) {
+    doc.autoTable({
+      startY: y,
+      margin: { left: M, right: M },
+      head: [['SIGNAL', 'SEVERITY', 'WEIGHT', 'SOURCE']],
+      body: risk.signals.map(s => [s.label, s.severity, String(s.rawWeight), s.source]),
+      styles:     { font: 'courier', fontSize: 7, textColor: [230,237,243], fillColor: [13,17,23] },
+      headStyles: { fillColor: [22,27,34], textColor: [0,255,136], fontStyle: 'bold' },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // Findings by category
+  const grouped = {};
+  for (const f of inv.findings) {
+    const cat = f.category || 'uncategorised';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(f);
+  }
+
+  const catLabels = { social: 'SOCIAL', infrastructure: 'INFRASTRUCTURE', regulatory: 'REGULATORY' };
+
+  for (const [cat, findings] of Object.entries(grouped)) {
+    if (y > 250) { doc.addPage(); doc.setFillColor(6,10,15); doc.rect(0,0,W,297,'F'); y = 14; }
+    doc.setFontSize(9); doc.setTextColor(0,255,136);
+    doc.text(`// ${catLabels[cat] || cat.toUpperCase()} (${findings.length})`, M, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      margin: { left: M, right: M },
+      head: [['TITLE', 'VALUE', 'CONF', 'SIGNAL', 'TIMESTAMP']],
+      body: findings.map(f => [
+        (f.title||'').slice(0,40),
+        (f.value||'').slice(0,50),
+        f.confidence != null ? Math.round(f.confidence*100)+'%' : '—',
+        f.riskSignal || '—',
+        f.timestamp.slice(0,19).replace('T',' '),
+      ]),
+      styles:     { font: 'courier', fontSize: 6.5, textColor: [230,237,243], fillColor: [13,17,23], overflow: 'ellipsize' },
+      headStyles: { fillColor: [22,27,34], textColor: [0,170,255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [6,10,15] },
+      columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: 55 }, 2: { cellWidth: 12 }, 3: { cellWidth: 28 }, 4: { cellWidth: 35 } },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  // Audit trail
+  if (y > 220) { doc.addPage(); doc.setFillColor(6,10,15); doc.rect(0,0,W,297,'F'); y = 14; }
+  doc.setFontSize(9); doc.setTextColor(0,255,136);
+  doc.text('// AUDIT TRAIL', M, y); y += 4;
+
+  doc.autoTable({
+    startY: y,
+    margin: { left: M, right: M },
+    head: [['STATUS', 'SOURCE', 'TITLE', 'SOURCE URL', 'TIMESTAMP']],
+    body: [...inv.findings, ...inv.falsePositives].map(f => [
+      f.falsePositiveReason ? 'FP' : 'OK',
+      f.source || '',
+      (f.title||'').slice(0,35),
+      (f.sourceUrl||'').slice(0,45),
+      f.timestamp.slice(0,19).replace('T',' '),
+    ]),
+    styles:     { font: 'courier', fontSize: 6, textColor: [230,237,243], fillColor: [13,17,23], overflow: 'ellipsize' },
+    headStyles: { fillColor: [22,27,34], textColor: [0,255,136], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [6,10,15] },
+  });
+
+  const slug = inv.meta.target.replace(/\s+/g,'_').toLowerCase();
+  doc.save(`OSINT_${slug}_${inv.meta.timestamp.slice(0,10)}.pdf`);
+}
+
+// ── Markdown Export ────────────────────────────────────────────────────────
+function downloadMarkdown() {
+  if (!currentInvestigation) return;
+  const inv  = currentInvestigation;
+  const risk = inv.riskProfile;
+  const lines = [];
+
+  lines.push(`# OSINT Investigation Report`);
+  lines.push(`**Target:** ${inv.meta.target}  |  **Type:** ${inv.meta.type}  |  **Date:** ${inv.meta.timestamp.slice(0,10)}`);
+  lines.push(`**Risk:** ${risk.level} (${risk.score}/100)  |  **Analyst:** Dharam Kathiriya (Dark)\n---\n`);
+  lines.push(`## Executive Summary`);
+  lines.push(`Investigation of **"${inv.meta.target}"** (${inv.meta.type}) using passive OSINT.`);
+  lines.push(`- Raw findings: **${inv.meta.totalRaw}**`);
+  lines.push(`- Confirmed: **${inv.meta.confirmedFindings}**  |  False positives filtered: **${inv.meta.falsePositivesFiltered}**`);
+  lines.push(`- Overall Risk: **${risk.level} (${risk.score}/100)**\n`);
+
+  const grouped = {};
+  for (const f of inv.findings) {
+    const cat = f.category || 'uncategorised';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(f);
+  }
+
+  for (const [cat, findings] of Object.entries(grouped)) {
+    lines.push(`\n## ${cat.toUpperCase()} (${findings.length} findings)`);
+    lines.push(`| Title | Value | Confidence | Risk Signal | Source | Timestamp |`);
+    lines.push(`|-------|-------|-----------|-------------|--------|-----------|`);
+    for (const f of findings) {
+      const conf = f.confidence != null ? Math.round(f.confidence*100)+'%' : '—';
+      lines.push(`| ${f.title} | ${(f.value||'').slice(0,60)} | ${conf} | ${f.riskSignal||'—'} | ${f.source} | ${f.timestamp.slice(0,19)} |`);
+    }
+  }
+
+  lines.push(`\n## Audit Trail`);
+  lines.push(`| Status | Source | Title | Source URL | Timestamp |`);
+  lines.push(`|--------|--------|-------|-----------|-----------|`);
+  for (const f of [...inv.findings, ...inv.falsePositives]) {
+    lines.push(`| ${f.falsePositiveReason?'FP':'OK'} | ${f.source} | ${f.title} | ${f.sourceUrl||'—'} | ${f.timestamp.slice(0,19)} |`);
+  }
+
+  lines.push(`\n---\n*Generated by OSINT Tool v1.0 | ${inv.meta.timestamp}*`);
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `OSINT_${inv.meta.target.replace(/\s+/g,'_').toLowerCase()}_${inv.meta.timestamp.slice(0,10)}.md`;
+  a.click();
+}
+
+// ── JSON Export ────────────────────────────────────────────────────────────
+function downloadJSON() {
+  if (!currentInvestigation) return;
+  const blob = new Blob([JSON.stringify(currentInvestigation, null, 2)], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `OSINT_${currentInvestigation.meta.target.replace(/\s+/g,'_').toLowerCase()}_${currentInvestigation.meta.timestamp.slice(0,10)}.json`;
+  a.click();
+}
+
+// ── Enter key ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('target').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runInvestigation();
+  });
+});
+</script>
+</body>
+</html>

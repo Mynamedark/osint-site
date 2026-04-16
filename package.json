@@ -1,0 +1,13 @@
+{
+  "name": "osint-site",
+  "version": "1.0.0",
+  "description": "OSINT Tool — Netlify hosted web app",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Static site — no build step needed'"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "node-fetch": "^2.7.0"
+  }
+}
